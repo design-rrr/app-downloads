@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bitcoin Safe - Download Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+  <style>
+    :root { --bg:#0d1117; --card:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff; --green:#3fb950; --orange:#d29922; --red:#f85149; --purple:#bc8cff; --cyan:#38d3d7; }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    .ctr{max-width:100%;margin:0 auto;padding:20px}
+    header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+    header h1{font-size:22px;font-weight:600;display:flex;align-items:center;gap:8px}
+    header h1 img{width:32px;height:32px;border-radius:6px}
+    .links{display:flex;gap:8px}
+    .links a{color:var(--accent);text-decoration:none;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:5px}
+    .links a:hover{background:var(--card)}
+
+    .filters{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px}
+    .filters-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .filters-hdr h3{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);display:flex;align-items:center;gap:5px}
+    .frow{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+    .fg{display:flex;flex-direction:column;gap:3px}
+    .fg label{font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+    .fg select,.fg input{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:5px;font-size:12px;min-width:110px;outline:none}
+    .fg select:focus,.fg input:focus{border-color:var(--accent)}
+    .btn-reset{background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:5px;font-size:11px;cursor:pointer;height:28px}
+    .btn-reset:hover{border-color:var(--red);color:var(--red)}
+
+    .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;margin-bottom:20px}
+    .kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 12px;text-align:center}
+    .kpi .val{font-size:24px;font-weight:700;color:var(--accent)}
+    .kpi .lbl{font-size:10px;color:var(--muted);margin-top:2px}
+    .g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
+    .gf{margin-bottom:18px}
+    @media(max-width:768px){.g2{grid-template-columns:1fr}.frow{flex-direction:column}.fg{width:100%}.fg select,.fg input{width:100%}}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px}
+    .card h2{font-size:13px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+    .card h2 .d{width:7px;height:7px;border-radius:50%}
+    .d-g{background:var(--green)}.d-o{background:var(--orange)}.d-b{background:var(--accent)}.d-r{background:var(--red)}.d-p{background:var(--purple)}.d-c{background:var(--cyan)}
+    .cc{position:relative;height:280px}.cc.t{height:360px}
+    table{width:100%;border-collapse:collapse}
+    th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);font-size:12px}
+    th{color:var(--muted);font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:.3px}
+    tr:last-child td{border-bottom:none}
+    td.n{font-variant-numeric:tabular-nums;text-align:right}
+    th.n{text-align:right}
+    .b{display:inline-block;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:600}
+    .b-s{background:#1a3a2a;color:var(--green)}.b-p{background:#3d2e0a;color:var(--orange)}.b-bot{background:#3a1a1a;color:var(--red)}.b-ok{background:#1a3a2a;color:var(--green)}
+    .cmp{display:grid;grid-template-columns:1fr 36px 1fr;gap:0;align-items:center;margin-bottom:18px}
+    .cb{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+    .cb.cur{border-color:var(--green)}.cb.pre{opacity:.65}
+    .cv{text-align:center;color:var(--muted);font-weight:700;font-size:12px}
+    .cb .v{font-size:17px;font-weight:700;margin-bottom:3px}.cb .dl{font-size:26px;font-weight:700}.cb .m{font-size:10px;color:var(--muted);margin-top:2px}
+    .dt{font-size:12px;font-weight:600}.dt.up{color:var(--green)}.dt.dn{color:var(--red)}
+    .st{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+    .footer{text-align:center;color:var(--muted);font-size:10px;padding-top:16px;border-top:1px solid var(--border);margin-top:24px}
+    .loading{text-align:center;padding:50px;color:var(--muted)}
+    .spinner{display:inline-block;width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite;margin-bottom:10px}
+    @keyframes sp{to{transform:rotate(360deg)}}
+    .nr{text-align:center;padding:36px;color:var(--muted);font-size:13px}
+    .legend-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;justify-content:center}
+    .legend-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)}
+    .legend-item .swatch{width:10px;height:10px;border-radius:2px}
+  </style>
+</head>
+<body>
+<div class="ctr">
+  <header>
+    <h1><img src="https://dl.flathub.org/media/org/bitcoin_safe/BitcoinSafe/5f429a08aa555f64de934eb283afc87d/icons/128x128/org.bitcoin_safe.BitcoinSafe.png" alt="" onerror="this.style.display='none'">Bitcoin Safe Download Tracker</h1>
+    <div class="links"><a href="https://github.com/andreasgriffin/bitcoin-safe" target="_blank">GitHub</a><a href="https://flathub.org/en-GB/apps/org.bitcoin_safe.BitcoinSafe" target="_blank">Flathub</a></div>
+  </header>
+  <div id="app"><div class="loading"><div class="spinner"></div><br>Fetching data...</div></div>
+  <div class="footer">Data refreshed on page load. GitHub API + Flathub Stats API (proxied).<span id="upd"></span></div>
+</div>
+
+<script>
+const GH='andreasgriffin/bitcoin-safe',FL='org.bitcoin_safe.BitcoinSafe';
+let RAW={releases:[],flathub:null},charts={},
+  F={dateFrom:'',dateTo:'',type:'all',platform:'all',country:'all',search:'',includeAsc:false,granularity:'version',botFilter:'off',show:'version'};
+
+async function fetchGH(){
+  const out=[];let p=1;
+  while(true){
+    const r=await fetch(`https://api.github.com/repos/${GH}/releases?per_page=100&page=${p}`,{headers:{Accept:'application/vnd.github.v3+json'}});
+    if(!r.ok)throw new Error(`GitHub: ${r.status}`);
+    const d=await r.json();if(!d.length)break;out.push(...d);p++;
+  }
+  return out;
+}
+async function fetchFL(){
+  const urls=[
+    `/api/flathub/stats?id=${FL}`,
+    `/flathub-stats.json`,
+  ];
+  for(const url of urls){
+    try{const r=await fetch(url);if(!r.ok)continue;const d=await r.json();if(d&&d.installs_total!==undefined)return d}catch(e){continue}
+  }
+  return null;
+}
+
+const sigRe=/\.(asc|sig|sha256)$/i;
+function isSignature(n){return sigRe.test(n)}
+function sumDl(assets){return assets.reduce((s,a)=>s+(a.download_count||0),0)}
+function catAssets(assets,incAsc){
+  const c={windows:0,macos:0,linux:0,other:0,total:0,asc:0};
+  for(const a of assets){
+    const n=a.name.toLowerCase();
+    if(isSignature(n)){c.asc+=a.download_count;continue}
+    c.total+=a.download_count;
+    if(n.includes('.exe')||n.includes('.msi'))c.windows+=a.download_count;
+    else if(n.includes('.dmg')||n.includes('.pkg'))c.macos+=a.download_count;
+    else if(n.includes('.deb')||n.includes('.appimage')||n.includes('.flatpak')||n.includes('.rpm')||n.includes('.tar.gz'))c.linux+=a.download_count;
+    else c.other+=a.download_count;
+  }
+  return c;
+}
+function fmtN(n){if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'K';return n.toLocaleString()}
+function fmtDate(iso){return new Date(iso).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
+function daysSince(iso){return Math.floor((Date.now()-new Date(iso))/864e5)}
+function toISO(iso){return new Date(iso).toISOString().slice(0,10)}
+function parseVer(tag){const m=tag.match(/(\d+)\.(\d+)\.(\d+)/);return m?[+m[1],+m[2],+m[3]]:[0,0,0]}
+
+function isBot(v,allVersions){
+  if(F.botFilter==='off')return false;
+  const avg=allVersions.reduce((s,x)=>s+x.downloads,0)/allVersions.length;
+  if(F.botFilter==='baseline'){
+    return v.downloads>0&&v.downloads<2;
+  }
+  if(F.botFilter==='windowed'){
+    if(allVersions.length<3)return false;
+    const idx=allVersions.indexOf(v);
+    const window=allVersions.slice(Math.max(0,idx-2),Math.min(allVersions.length,idx+3));
+    const localAvg=window.reduce((s,x)=>s+x.downloads,0)/window.length;
+    if(localAvg===0)return false;
+    return v.downloads<localAvg*0.05;
+  }
+  return false;
+}
+
+function getFiltered(){
+  let data=RAW.releases.map(r=>{
+    const c=catAssets(r.assets,F.includeAsc);
+    return{
+      tag:r.tag_name,name:r.name||r.tag_name,prerelease:r.prerelease,
+      published:r.published_at,daysAgo:daysSince(r.published_at),
+      downloads:F.includeAsc?c.asc+c.total:c.total,
+      totalAssets:r.assets.length,ascAssets:r.assets.filter(a=>isSignature(a.name)).length,
+      realAssets:r.assets.filter(a=>!isSignature(a.name)).length,
+      cats:c,assets:r.assets,
+    };
+  }).sort((a,b)=>new Date(a.published)-new Date(b.published));
+
+  if(F.dateFrom)data=data.filter(v=>toISO(v.published)>=F.dateFrom);
+  if(F.dateTo)data=data.filter(v=>toISO(v.published)<=F.dateTo);
+  if(F.type==='stable')data=data.filter(v=>!v.prerelease);
+  if(F.type==='prerelease')data=data.filter(v=>v.prerelease);
+  if(F.search){const q=F.search.toLowerCase();data=data.filter(v=>v.name.toLowerCase().includes(q)||v.tag.toLowerCase().includes(q))}
+  return data;
+}
+
+function getFilteredCountries(){
+  if(!RAW.flathub||!RAW.flathub.installs_per_country)return[];
+  let e=Object.entries(RAW.flathub.installs_per_country);
+  if(F.country!=='all')e=e.filter(([c])=>c===F.country);
+  return e.sort((a,b)=>b[1]-a[1]);
+}
+
+function platformCats(v){
+  const c=v.cats;
+  if(F.platform==='all')return c;
+  const o={windows:0,macos:0,linux:0,other:0,total:0,asc:0};
+  o[F.platform]=c[F.platform]||0;
+  o.total=o[F.platform];
+  return o;
+}
+function sumC(c){return c.windows+c.macos+c.linux+c.other}
+
+function destroyCharts(){Object.values(charts).forEach(c=>{if(c&&c.destroy)c.destroy()});charts={}}
+
+function renderAll(){
+  destroyCharts();
+  const data=getFiltered(),countries=getFilteredCountries();
+  const totalGh=data.reduce((s,v)=>s+sumC(platformCats(v)),0);
+  const flTotal=RAW.flathub?RAW.flathub.installs_total:'N/A';
+  const pt={windows:0,macos:0,linux:0,other:0};
+  data.forEach(v=>{const c=platformCats(v);pt.windows+=c.windows;pt.macos+=c.macos;pt.linux+=c.linux;pt.other+=c.other});
+
+  const stableData=data.filter(v=>!v.prerelease);
+  const latest=stableData[stableData.length-1],prev=stableData.length>=2?stableData[stableData.length-2]:null;
+  const app=document.getElementById('app');
+
+  if(!data.length){app.innerHTML=renderFiltersHTML()+'<div class="nr">No releases match filters.</div>';bindEvents();return}
+
+  let cmpHTML='';
+  if(latest&&prev){
+    const dD=latest.downloads-prev.downloads,dP=prev.downloads>0?((dD/prev.downloads)*100).toFixed(0):'-';
+    const aL=latest.daysAgo>0?(latest.downloads/latest.daysAgo).toFixed(1):'-';
+    const aP=prev.daysAgo>0?(prev.downloads/prev.daysAgo).toFixed(1):'-';
+    const aD=aL!=='-'&&aP!=='-'?(parseFloat(aL)-parseFloat(aP)).toFixed(1):null;
+    cmpHTML=`<div class="st">Version Comparison</div><div class="cmp">
+      <div class="cb pre"><div class="v">${prev.name}</div><div class="dl" style="color:var(--muted)">${fmtN(prev.downloads)}</div><div class="m">${fmtDate(prev.published)} · ${prev.daysAgo}d · avg ${aP}/day</div></div>
+      <div class="cv">VS</div>
+      <div class="cb cur"><div class="v" style="color:var(--green)">${latest.name}</div><div class="dl" style="color:var(--green)">${fmtN(latest.downloads)}</div><div class="m">${fmtDate(latest.published)} · ${latest.daysAgo}d · avg ${aL}/day</div>
+      ${dD!==0?`<div class="dt ${dD>0?'up':'dn'}">${dD>0?'+':''}${fmtN(dD)} (${dP}%)</div>`:''}
+      ${aD!==null?`<div class="dt ${parseFloat(aD)>0?'up':'dn'}">${parseFloat(aD)>0?'+':''}${aD}/day avg</div>`:''}
+      </div></div>`;
+  }
+
+  // Bot flagged versions
+  const botVersions=data.filter(v=>isBot(v,data));
+
+  app.innerHTML=`
+    ${renderFiltersHTML()}
+    ${botVersions.length?`<div style="background:#2a1515;border:1px solid #5a2020;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--red)">⚠ Bot-filtered versions (excluded from charts): ${botVersions.map(v=>'<strong>'+v.name+'</strong>').join(', ')}</div>`:''}
+    <div class="kpi-row">
+      <div class="kpi"><div class="val">${fmtN(totalGh)}</div><div class="lbl">GitHub Downloads</div></div>
+      <div class="kpi"><div class="val">${flTotal}</div><div class="lbl">Flathub Installs</div></div>
+      <div class="kpi"><div class="val">${data.length}</div><div class="lbl">Releases Shown</div></div>
+      <div class="kpi"><div class="val">${latest?latest.name:'-'}</div><div class="lbl">Latest Version</div></div>
+      <div class="kpi"><div class="val">${latest?fmtN(latest.downloads):'-'}</div><div class="lbl">Latest Downloads</div></div>
+      <div class="kpi"><div class="val">${latest&&latest.daysAgo>0?(latest.downloads/latest.daysAgo).toFixed(1):'-'}</div><div class="lbl">Latest Avg/Day</div></div>
+      <div class="kpi"><div class="val">${data.reduce((s,v)=>s+v.realAssets,0)}</div><div class="lbl">Total Assets</div></div>
+      <div class="kpi"><div class="val">${data.reduce((s,v)=>s+v.ascAssets,0)}</div><div class="lbl">Sig Files (.asc)</div></div>
+    </div>
+    ${cmpHTML}
+
+    <div class="g2">
+      <div class="card"><h2><span class="d d-b"></span>Downloads by Version</h2><div class="cc t"><canvas id="c1"></canvas></div></div>
+      <div class="card"><h2><span class="d d-p"></span>Platform per Version</h2><div class="cc t"><canvas id="c2"></canvas></div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><h2><span class="d d-g"></span>Cumulative Growth</h2><div class="cc t"><canvas id="c3"></canvas></div></div>
+      <div class="card"><h2><span class="d d-c"></span>Asset Count per Version</h2><div class="cc t"><canvas id="c4"></canvas></div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><h2><span class="d d-g"></span>Platform Totals</h2><div class="cc"><canvas id="c5"></canvas></div></div>
+      <div class="card"><h2><span class="d d-b"></span>Avg Downloads/Day</h2><div class="cc"><canvas id="c6"></canvas></div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><h2><span class="d d-o"></span>Download Velocity (Δ per version)</h2><div class="cc"><canvas id="c7"></canvas></div></div>
+      <div class="card"><h2><span class="d d-r"></span>Bot Score Distribution</h2><div class="cc"><canvas id="c8"></canvas></div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><h2><span class="d d-p"></span>Verified vs Pre-release</h2><div class="cc"><canvas id="c9"></canvas></div></div>
+      <div class="card"><h2><span class="d d-o"></span>Flathub Countries</h2><div class="cc"><canvas id="c10"></canvas></div></div>
+    </div>
+
+    <div class="card gf">
+      <h2><span class="d d-b"></span>Full Release History</h2>
+      <div style="overflow-x:auto"><table>
+        <thead><tr><th>Version</th><th>Type</th><th>Published</th><th>Days</th><th class="n">Win</th><th class="n">Mac</th><th class="n">Linux</th><th class="n">Total</th><th class="n">Assets</th><th class="n">.asc</th><th class="n">Avg/Day</th><th class="n">% Total</th><th>Bot</th></tr></thead>
+        <tbody>${data.map(v=>{
+          const pc=platformCats(v),tot=sumC(pc),bot=isBot(v,data);
+          return `<tr${bot?' style="opacity:.4"':''}><td><strong>${v.name}</strong></td><td>${v.prerelease?'<span class="b b-p">Pre</span>':'<span class="b b-s">Stable</span>'}</td><td>${fmtDate(v.published)}</td><td>${v.daysAgo===0?'Today':v.daysAgo+'d'}</td><td class="n">${fmtN(pc.windows)}</td><td class="n">${fmtN(pc.macos)}</td><td class="n">${fmtN(pc.linux)}</td><td class="n"><strong>${fmtN(tot)}</strong></td><td class="n">${v.realAssets}</td><td class="n">${v.ascAssets}</td><td class="n">${v.daysAgo>0?(tot/v.daysAgo).toFixed(1):'-'}</td><td class="n">${totalGh>0?((tot/totalGh)*100).toFixed(1)+'%':'-'}</td><td>${bot?'<span class="b b-bot">BOT</span>':'<span class="b b-ok">OK</span>'}</td></tr>`;
+        }).join('')}</tbody>
+      </table></div>
+    </div>
+
+    ${RAW.flathub&&countries.length?`<div class="card gf"><h2><span class="d d-o"></span>Flathub Stats</h2><table>
+      <thead><tr><th>Metric</th><th class="n">Value</th></tr></thead>
+      <tbody><tr><td>Total Installs</td><td class="n"><strong>${RAW.flathub.installs_total}</strong></td></tr><tr><td>Last Month</td><td class="n">${RAW.flathub.installs_last_month}</td></tr><tr><td>Last 7 Days</td><td class="n">${RAW.flathub.installs_last_7_days}</td></tr>${countries.map(([c,n])=>`<tr><td>${c}</td><td class="n">${n}</td></tr>`).join('')}</tbody>
+    </table></div>`:''}`;
+
+  bindEvents();
+  buildCharts(data.filter(v=>!isBot(v,data)),countries,pt,totalGh);
+}
+
+function renderFiltersHTML(){
+  const allC=RAW.flathub&&RAW.flathub.installs_per_country?Object.keys(RAW.flathub.installs_per_country).sort():[];
+  const dates=RAW.releases.map(r=>toISO(r.published_at)).sort();
+  const mn=dates[0]||'',mx=dates[dates.length-1]||'';
+  return `<div class="filters"><div class="filters-hdr"><h3>⊞ Filters</h3><button class="btn-reset" id="btnR">Reset</button></div><div class="frow">
+    <div class="fg"><label>Date From</label><input type="date" id="fDF" value="${F.dateFrom}" min="${mn}" max="${mx}"></div>
+    <div class="fg"><label>Date To</label><input type="date" id="fDT" value="${F.dateTo}" min="${mn}" max="${mx}"></div>
+    <div class="fg"><label>Version Type</label><select id="fT"><option value="all"${F.type==='all'?' selected':''}>All</option><option value="stable"${F.type==='stable'?' selected':''}>Stable</option><option value="prerelease"${F.type==='prerelease'?' selected':''}>Pre-release</option></select></div>
+    <div class="fg"><label>Platform</label><select id="fP"><option value="all"${F.platform==='all'?' selected':''}>All</option><option value="windows"${F.platform==='windows'?' selected':''}>Windows</option><option value="macos"${F.platform==='macos'?' selected':''}>macOS</option><option value="linux"${F.platform==='linux'?' selected':''}>Linux</option></select></div>
+    <div class="fg"><label>Include .asc</label><select id="fA"><option value="0"${!F.includeAsc?' selected':''}>Exclude</option><option value="1"${F.includeAsc?' selected':''}>Include</option></select></div>
+    <div class="fg"><label>Granularity</label><select id="fG"><option value="version"${F.granularity==='version'?' selected':''}>By Version</option><option value="monthly"${F.granularity==='monthly'?' selected':''}>Monthly</option><option value="yearly"${F.granularity==='yearly'?' selected':''}>Yearly</option></select></div>
+    <div class="fg"><label>Bot Filter</label><select id="fB"><option value="off"${F.botFilter==='off'?' selected':''}>Off</option><option value="baseline"${F.botFilter==='baseline'?' selected':''}>Hourly Baseline</option><option value="windowed"${F.botFilter==='windowed'?' selected':''}>Common-bot (Windowed)</option></select></div>
+    <div class="fg"><label>Show</label><select id="fS"><option value="version"${F.show==='version'?' selected':''}>Version</option><option value="assets"${F.show==='assets'?' selected':''}>Assets</option><option value="os"${F.show==='os'?' selected':''}>OS</option><option value="verified"${F.show==='verified'?' selected':''}>Verified</option><option value="patterns"${F.show==='patterns'?' selected':''}>Patterns</option></select></div>
+    ${allC.length?`<div class="fg"><label>Country</label><select id="fC"><option value="all"${F.country==='all'?' selected':''}>All</option>${allC.map(c=>`<option value="${c}"${F.country===c?' selected':''}>${c}</option>`).join('')}</select></div>`:''}
+    <div class="fg"><label>Search</label><input type="text" id="fQ" placeholder="e.g. 2.0" value="${F.search}"></div>
+  </div></div>`;
+}
+
+function bindEvents(){
+  const $=id=>document.getElementById(id);
+  const sync=()=>{
+    F.dateFrom=$('fDF')?.value||'';F.dateTo=$('fDT')?.value||'';F.type=$('fT')?.value||'all';
+    F.platform=$('fP')?.value||'all';F.includeAsc=$('fA')?.value==='1';F.granularity=$('fG')?.value||'version';
+    F.botFilter=$('fB')?.value||'off';F.show=$('fS')?.value||'version';F.country=$('fC')?.value||'all';
+    F.search=$('fQ')?.value||'';renderAll();
+  };
+  ['fDF','fDT','fT','fP','fA','fG','fB','fS','fC'].forEach(id=>{const e=$(id);if(e)e.addEventListener('change',sync)});
+  const q=$('fQ');if(q)q.addEventListener('input',sync);
+  const r=$('btnR');if(r)r.addEventListener('click',()=>{F={dateFrom:'',dateTo:'',type:'all',platform:'all',country:'all',search:'',includeAsc:false,granularity:'version',botFilter:'off',show:'version'};renderAll()});
+}
+
+function buildCharts(data,countries,pt,totalGh){
+  const C={bl:'rgba(88,166,255,.8)',gn:'rgba(63,185,80,.8)',or:'rgba(210,153,34,.8)',rd:'rgba(248,81,73,.8)',pu:'rgba(188,140,255,.8)',cy:'rgba(56,211,215,.8)',blB:'rgba(88,166,255,.15)',gnB:'rgba(63,185,80,.15)',pl:['rgba(88,166,255,.8)','rgba(188,140,255,.8)','rgba(63,185,80,.8)','rgba(210,153,34,.8)']};
+  const ax={ticks:{color:'#8b949e',font:{size:10}},grid:{color:'#21262d'}};
+  const bo={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b949e',font:{size:10}}}},scales:{x:{...ax},y:{...ax}}};
+
+  // Group by granularity
+  let chartData=data;
+  if(F.granularity==='monthly'||F.granularity==='yearly'){
+    const groups={};
+    data.forEach(v=>{
+      const d=new Date(v.published);
+      const key=F.granularity==='yearly'?d.getFullYear()+'':`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      if(!groups[key])groups[key]={versions:[],downloads:0,windows:0,macos:0,linux:0,other:0,assets:0,ascAssets:0};
+      const g=groups[key];g.versions.push(v.name);g.downloads+=v.downloads;g.windows+=v.cats.windows;g.macos+=v.cats.macos;g.linux+=v.cats.linux;g.other+=v.cats.other;g.assets+=v.realAssets;g.ascAssets+=v.ascAssets;
+    });
+    chartData=Object.entries(groups).sort((a,b)=>a[0].localeCompare(b[0])).map(([k,v])=>({name:k,tag:k,downloads:v.downloads,prerelease:false,published:k,daysAgo:1,cats:{windows:v.windows,macos:v.macos,linux:v.linux,other:v.other},realAssets:v.assets,ascAssets:v.ascAssets,totalAssets:v.assets+v.ascAssets,versions:v.versions}));
+  }
+
+  const labels=chartData.map(v=>v.name);
+  const dlData=chartData.map(v=>v.downloads);
+
+  // 1) Downloads by version
+  charts.c1=new Chart(document.getElementById('c1'),{type:'bar',data:{labels,datasets:[{label:'Downloads',data:dlData,backgroundColor:chartData.map(v=>v.prerelease?C.or:C.bl),borderRadius:5}]},options:{...bo,plugins:{...bo.plugins,legend:{display:false},tooltip:{callbacks:{afterLabel:ctx=>{const v=chartData[ctx.dataIndex];return `Assets: ${v.realAssets} (+${v.ascAssets} sig)\nAvg/day: ${v.daysAgo>0?(v.downloads/v.daysAgo).toFixed(1):'-'}`;}}}},scales:{x:{...ax,ticks:{...ax.ticks,maxRotation:45,minRotation:30}},y:{...ax,title:{display:true,text:'Downloads',color:'#8b949e'}}}}});
+
+  // 2) Platform stacked
+  charts.c2=new Chart(document.getElementById('c2'),{type:'bar',data:{labels,datasets:[{label:'Windows',data:chartData.map(v=>v.cats.windows),backgroundColor:C.pl[0],borderRadius:2},{label:'macOS',data:chartData.map(v=>v.cats.macos),backgroundColor:C.pl[1],borderRadius:2},{label:'Linux',data:chartData.map(v=>v.cats.linux),backgroundColor:C.pl[2],borderRadius:2}]},options:{...bo,plugins:{...bo.plugins,tooltip:{mode:'index',intersect:false}},scales:{x:{stacked:true,...ax,ticks:{...ax.ticks,maxRotation:45,minRotation:30}},y:{stacked:true,...ax,title:{display:true,text:'Downloads',color:'#8b949e'}}}}});
+
+  // 3) Cumulative
+  let cum=0;const cumD=chartData.map(v=>{cum+=v.downloads;return{x:v.name,y:cum}});
+  const an={};chartData.forEach((v,i)=>{an['l'+i]={type:'line',xMin:v.name,xMax:v.name,borderColor:v.prerelease?'rgba(210,153,34,.3)':'rgba(63,185,80,.4)',borderWidth:v.prerelease?1:2,borderDash:v.prerelease?[4,4]:[],label:{display:i%Math.max(1,Math.floor(chartData.length/8))===0,content:v.name,color:'#8b949e',font:{size:9},position:'start',backgroundColor:'transparent'}}});
+  charts.c3=new Chart(document.getElementById('c3'),{type:'line',data:{labels,datasets:[{label:'Cumulative',data:cumD,borderColor:C.gn,backgroundColor:C.gnB,fill:true,tension:.3,pointRadius:4,pointBackgroundColor:chartData.map(v=>v.prerelease?C.or:C.gn)}]},options:{...bo,plugins:{...bo.plugins,legend:{display:false},annotation:{annotations:an}},scales:{x:{...ax,ticks:{...ax.ticks,maxRotation:45,minRotation:30}},y:{...ax,title:{display:true,text:'Cumulative',color:'#8b949e'}}}}});
+
+  // 4) Asset count
+  charts.c4=new Chart(document.getElementById('c4'),{type:'bar',data:{labels,datasets:[{label:'Real Assets',data:chartData.map(v=>v.realAssets),backgroundColor:C.cy,borderRadius:3},{label:'.asc Files',data:chartData.map(v=>v.ascAssets),backgroundColor:C.rd,borderRadius:3}]},options:{...bo,scales:{x:{stacked:true,...ax,ticks:{...ax.ticks,maxRotation:45,minRotation:30}},y:{stacked:true,...ax,title:{display:true,text:'Asset Count',color:'#8b949e'}}}}});
+
+  // 5) Platform doughnut
+  charts.c5=new Chart(document.getElementById('c5'),{type:'doughnut',data:{labels:['Windows','macOS','Linux','Other'],datasets:[{data:[pt.windows,pt.macos,pt.linux,pt.other],backgroundColor:C.pl,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#8b949e',font:{size:11},padding:12}}}}});
+
+  // 6) Daily avg
+  const daData=chartData.filter(v=>v.daysAgo>0).map(v=>({name:v.name,avg:v.downloads/v.daysAgo,pre:v.prerelease}));
+  charts.c6=new Chart(document.getElementById('c6'),{type:'bar',data:{labels:daData.map(v=>v.name),datasets:[{label:'Avg/Day',data:daData.map(v=>v.avg),backgroundColor:daData.map(v=>v.pre?C.or:C.cy),borderRadius:5}]},options:{...bo,plugins:{...bo.plugins,legend:{display:false}},scales:{x:{...ax,ticks:{...ax.ticks,maxRotation:45,minRotation:30}},y:{...ax,title:{display:true,text:'Downloads/Day',color:'#8b949e'}}}}});
+
+  // 7) Download velocity (delta between versions)
+  const velData=[];
+  for(let i=1;i<chartData.length;i++){
+    const delta=chartData[i].downloads-chartData[i-1].downloads;
+    velData.push({name:chartData[i].name,delta});
+  }
+  charts.c7=new Chart(document.getElementById('c7'),{type:'bar',data:{labels:velData.map(v=>v.name),datasets:[{label:'Δ Downloads',data:velData.map(v=>v.delta),backgroundColor:velData.map(v=>v.delta>0?C.gn:C.rd),borderRadius:5}]},options:{...bo,plugins:{...bo.plugins,legend:{display:false}},scales:{x:{...ax,ticks:{...ax.ticks,maxRotation:45,minRotation:30}},y:{...ax,title:{display:true,text:'Download Change',color:'#8b949e'}}}}});
+
+  // 8) Bot score (downloads/day ratio visualization)
+  const avgAll=data.length?data.reduce((s,v)=>s+v.downloads,0)/data.length:0;
+  const botData=data.map(v=>{const score=avgAll>0?v.downloads/avgAll:1;return{name:v.name,score:score,downloads:v.downloads}});
+  charts.c8=new Chart(document.getElementById('c8'),{type:'bar',data:{labels:botData.map(v=>v.name),datasets:[{label:'Relative Score (1.0=avg)',data:botData.map(v=>v.score),backgroundColor:botData.map(v=>v.score<0.1?C.rd:v.score<0.5?C.or:C.gn),borderRadius:5}]},options:{...bo,plugins:{...bo.plugins,legend:{display:false},annotation:{annotations:{avgLine:{type:'line',yMin:1,yMax:1,borderColor:'rgba(255,255,255,.3)',borderWidth:1,borderDash:[4,4],label:{display:true,content:'Average',color:'#8b949e',font:{size:9},position:'end'}}}}},scales:{x:{...ax,ticks:{...ax.ticks,maxRotation:45,minRotation:30}},y:{...ax,title:{display:true,text:'Score (1.0 = avg)',color:'#8b949e'}}}}});
+
+  // 9) Verified (stable) vs pre-release stacked
+  const verifiedDl=data.filter(v=>!v.prerelease).reduce((s,v)=>s+v.downloads,0);
+  const preDl=data.filter(v=>v.prerelease).reduce((s,v)=>s+v.downloads,0);
+  charts.c9=new Chart(document.getElementById('c9'),{type:'doughnut',data:{labels:['Stable (Verified)','Pre-release'],datasets:[{data:[verifiedDl,preDl],backgroundColor:[C.gn,C.or],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#8b949e',font:{size:11},padding:12}}}}});
+
+  // 10) Countries
+  if(countries.length){
+    charts.c10=new Chart(document.getElementById('c10'),{type:'bar',data:{labels:countries.map(([c])=>c),datasets:[{label:'Installs',data:countries.map(([,v])=>v),backgroundColor:C.gn,borderRadius:5}]},options:{...bo,indexAxis:'y',plugins:{...bo.plugins,legend:{display:false}}}});
+  }
+}
+
+(async()=>{
+  try{
+    const[releases,flathub]=await Promise.all([fetchGH(),fetchFL()]);
+    RAW={releases,flathub};renderAll();
+    document.getElementById('upd').textContent=' — '+new Date().toLocaleString();
+  }catch(e){
+    const isL=location.protocol==='file:';
+    document.getElementById('app').innerHTML=`<div class="loading" style="color:var(--red)"><p style="font-size:16px;margin-bottom:8px">Error</p><p>${e.message}</p>${isL?'<p style="margin-top:12px;font-size:12px">Run: <code>python3 serve.py</code> then open localhost:8080</p>':''}</div>`;
+  }
+})();
+</script>
+</body>
+</html>

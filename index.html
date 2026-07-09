@@ -18,7 +18,7 @@
     .links a{color:var(--accent);text-decoration:none;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:5px}
     .links a:hover{background:var(--card)}
 
-    .filters{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px}
+    .filters{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-color:rgba(48,54,61,.9);box-shadow:0 4px 24px rgba(0,0,0,.4)}
     .filters-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
     .filters-hdr h3{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);display:flex;align-items:center;gap:5px}
     .frow{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
@@ -54,6 +54,9 @@
     .cb.cur{border-color:var(--green)}.cb.pre{opacity:.65}
     .cv{text-align:center;color:var(--muted);font-weight:700;font-size:12px}
     .cb .v{font-size:17px;font-weight:700;margin-bottom:3px}.cb .dl{font-size:26px;font-weight:700}.cb .m{font-size:10px;color:var(--muted);margin-top:2px}
+    .cmp-sel{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;outline:none;margin-bottom:6px;text-align:center;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238b949e'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;padding-right:22px}
+    .cmp-sel:focus{border-color:var(--accent)}
+    .cmp-sel option{background:var(--card);color:var(--text);font-weight:400}
     .dt{font-size:12px;font-weight:600}.dt.up{color:var(--green)}.dt.dn{color:var(--red)}
     .st{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)}
     .footer{text-align:center;color:var(--muted);font-size:10px;padding-top:16px;border-top:1px solid var(--border);margin-top:24px}
@@ -81,6 +84,10 @@ const GH='andreasgriffin/bitcoin-safe',FL='org.bitcoin_safe.BitcoinSafe';
 let RAW={releases:[],flathub:null},charts={},
   F={dateFrom:'',dateTo:'',type:'all',platform:'all',country:'all',search:'',includeAsc:false,granularity:'version',botFilter:'off',show:'version'};
 
+const CACHE_KEY='btc_safe_data', CACHE_TTL=3600000;
+function loadCache(){try{const d=JSON.parse(localStorage.getItem(CACHE_KEY));if(d&&Date.now()-d.ts<CACHE_TTL)return d.data}catch(e){}return null}
+function saveCache(data){try{localStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),data}))}catch(e){}}
+
 async function fetchGH(){
   const out=[];let p=1;
   while(true){
@@ -99,6 +106,14 @@ async function fetchFL(){
     try{const r=await fetch(url);if(!r.ok)continue;const d=await r.json();if(d&&d.installs_total!==undefined)return d}catch(e){continue}
   }
   return null;
+}
+async function fetchData(){
+  const cached=loadCache();
+  if(cached)return cached;
+  const[releases,flathub]=await Promise.all([fetchGH(),fetchFL()]);
+  const data={releases,flathub};
+  saveCache(data);
+  return data;
 }
 
 const sigRe=/\.(asc|sig|sha256)$/i;
@@ -184,7 +199,17 @@ function renderAll(){
   destroyCharts();
   const data=getFiltered(),countries=getFilteredCountries();
   const totalGh=data.reduce((s,v)=>s+sumC(platformCats(v)),0);
-  const flTotal=RAW.flathub?RAW.flathub.installs_total:'N/A';
+
+  let flTotal='N/A',flLabel='Flathub Installs';
+  if(RAW.flathub){
+    if(F.country!=='all'&&RAW.flathub.installs_per_country&&RAW.flathub.installs_per_country[F.country]!==undefined){
+      flTotal=RAW.flathub.installs_per_country[F.country];
+      flLabel=`Flathub Installs (${F.country})`;
+    }else{
+      flTotal=RAW.flathub.installs_total;
+    }
+  }
+
   const pt={windows:0,macos:0,linux:0,other:0};
   data.forEach(v=>{const c=platformCats(v);pt.windows+=c.windows;pt.macos+=c.macos;pt.linux+=c.linux;pt.other+=c.other});
 
@@ -194,19 +219,33 @@ function renderAll(){
 
   if(!data.length){app.innerHTML=renderFiltersHTML()+'<div class="nr">No releases match filters.</div>';bindEvents();return}
 
-  let cmpHTML='';
-  if(latest&&prev){
-    const dD=latest.downloads-prev.downloads,dP=prev.downloads>0?((dD/prev.downloads)*100).toFixed(0):'-';
-    const aL=latest.daysAgo>0?(latest.downloads/latest.daysAgo).toFixed(1):'-';
-    const aP=prev.daysAgo>0?(prev.downloads/prev.daysAgo).toFixed(1):'-';
-    const aD=aL!=='-'&&aP!=='-'?(parseFloat(aL)-parseFloat(aP)).toFixed(1):null;
-    cmpHTML=`<div class="st">Version Comparison</div><div class="cmp">
-      <div class="cb pre"><div class="v">${prev.name}</div><div class="dl" style="color:var(--muted)">${fmtN(prev.downloads)}</div><div class="m">${fmtDate(prev.published)} · ${prev.daysAgo}d · avg ${aP}/day</div></div>
+  // Comparison defaults
+  if(!window._cmpA||!data.find(v=>v.name===window._cmpA))window._cmpA=prev?prev.name:'';
+  if(!window._cmpB||!data.find(v=>v.name===window._cmpB))window._cmpB=latest?latest.name:'';
+
+  function cmpStats(a,b){
+    if(!a||!b)return'';
+    const dD=a.downloads-b.downloads,dP=b.downloads>0?((dD/b.downloads)*100).toFixed(0):'-';
+    const aA=a.daysAgo>0?(a.downloads/a.daysAgo).toFixed(1):'-';
+    const aB=b.daysAgo>0?(b.downloads/b.daysAgo).toFixed(1):'-';
+    const aDelta=aA!=='-'&&aB!=='-'?(parseFloat(aA)-parseFloat(aB)).toFixed(1):null;
+    return{dD,dP,aA,aB,aDelta};
+  }
+  const vA=data.find(v=>v.name===window._cmpA);
+  const vB=data.find(v=>v.name===window._cmpB);
+  let cmpHTML='<div class="st">Version Comparison</div>';
+  const opts=(sel)=>data.map(v=>`<option value="${v.name}"${v.name===sel?' selected':''}>${v.name} (${fmtN(v.downloads)} dl)</option>`).join('');
+  if(vA&&vB&&vA.name!==vB.name){
+    const s=cmpStats(vA,vB);
+    cmpHTML+=`<div class="cmp">
+      <div class="cb pre"><select class="cmp-sel" id="cmpA">${opts(window._cmpA)}</select><div class="dl" style="color:var(--muted)">${fmtN(vA.downloads)}</div><div class="m">${fmtDate(vA.published)} · ${vA.daysAgo}d · avg ${s.aA}/day</div><div class="m">${vA.realAssets} assets${vA.ascAssets?' +'+vA.ascAssets+' .asc':''}</div></div>
       <div class="cv">VS</div>
-      <div class="cb cur"><div class="v" style="color:var(--green)">${latest.name}</div><div class="dl" style="color:var(--green)">${fmtN(latest.downloads)}</div><div class="m">${fmtDate(latest.published)} · ${latest.daysAgo}d · avg ${aL}/day</div>
-      ${dD!==0?`<div class="dt ${dD>0?'up':'dn'}">${dD>0?'+':''}${fmtN(dD)} (${dP}%)</div>`:''}
-      ${aD!==null?`<div class="dt ${parseFloat(aD)>0?'up':'dn'}">${parseFloat(aD)>0?'+':''}${aD}/day avg</div>`:''}
+      <div class="cb cur"><select class="cmp-sel" id="cmpB">${opts(window._cmpB)}</select><div class="dl" style="color:var(--green)">${fmtN(vB.downloads)}</div><div class="m">${fmtDate(vB.published)} · ${vB.daysAgo}d · avg ${s.aB}/day</div><div class="m">${vB.realAssets} assets${vB.ascAssets?' +'+vB.ascAssets+' .asc':''}</div>
+      ${s.dD!==0?`<div class="dt ${s.dD>0?'up':'dn'}" style="margin-top:6px">${s.dD>0?'+':''}${fmtN(s.dD)} downloads (${s.dP}%)</div>`:''}
+      ${s.aDelta!==null?`<div class="dt ${parseFloat(s.aDelta)>0?'up':'dn'}">${parseFloat(s.aDelta)>0?'+':''}${s.aDelta}/day avg</div>`:''}
       </div></div>`;
+  }else if(vA&&vB){
+    cmpHTML+=`<div class="cmp"><div class="cb pre"><select class="cmp-sel" id="cmpA">${opts(window._cmpA)}</select><div class="dl" style="color:var(--muted)">${fmtN(vA.downloads)}</div></div><div class="cv">VS</div><div class="cb cur"><select class="cmp-sel" id="cmpB">${opts(window._cmpB)}</select><div class="dl" style="color:var(--green)">${fmtN(vB.downloads)}</div></div></div>`;
   }
 
   // Bot flagged versions
@@ -217,7 +256,7 @@ function renderAll(){
     ${botVersions.length?`<div style="background:#2a1515;border:1px solid #5a2020;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--red)">⚠ Bot-filtered versions (excluded from charts): ${botVersions.map(v=>'<strong>'+v.name+'</strong>').join(', ')}</div>`:''}
     <div class="kpi-row">
       <div class="kpi"><div class="val">${fmtN(totalGh)}</div><div class="lbl">GitHub Downloads</div></div>
-      <div class="kpi"><div class="val">${flTotal}</div><div class="lbl">Flathub Installs</div></div>
+      <div class="kpi"><div class="val">${flTotal}</div><div class="lbl">${flLabel}</div></div>
       <div class="kpi"><div class="val">${data.length}</div><div class="lbl">Releases Shown</div></div>
       <div class="kpi"><div class="val">${latest?latest.name:'-'}</div><div class="lbl">Latest Version</div></div>
       <div class="kpi"><div class="val">${latest?fmtN(latest.downloads):'-'}</div><div class="lbl">Latest Downloads</div></div>
@@ -272,7 +311,9 @@ function renderFiltersHTML(){
   const allC=RAW.flathub&&RAW.flathub.installs_per_country?Object.keys(RAW.flathub.installs_per_country).sort():[];
   const dates=RAW.releases.map(r=>toISO(r.published_at)).sort();
   const mn=dates[0]||'',mx=dates[dates.length-1]||'';
-  return `<div class="filters"><div class="filters-hdr"><h3>⊞ Filters</h3><button class="btn-reset" id="btnR">Reset</button></div><div class="frow">
+  let cacheInfo='';
+  try{const c=JSON.parse(localStorage.getItem(CACHE_KEY));if(c)cacheInfo=`cached ${Math.round((Date.now()-c.ts)/60000)}m ago`}catch(e){}
+  return `<div class="filters"><div class="filters-hdr"><h3>⊞ Filters</h3><div style="display:flex;gap:8px;align-items:center">${cacheInfo?`<span style="font-size:10px;color:var(--muted)">${cacheInfo}</span><button class="btn-reset" id="btnClearCache" style="font-size:10px;padding:3px 8px;height:22px">Clear Cache</button>`:''}<button class="btn-reset" id="btnR">Reset</button></div></div><div class="frow">
     <div class="fg"><label>Date From</label><input type="date" id="fDF" value="${F.dateFrom}" min="${mn}" max="${mx}"></div>
     <div class="fg"><label>Date To</label><input type="date" id="fDT" value="${F.dateTo}" min="${mn}" max="${mx}"></div>
     <div class="fg"><label>Version Type</label><select id="fT"><option value="all"${F.type==='all'?' selected':''}>All</option><option value="stable"${F.type==='stable'?' selected':''}>Stable</option><option value="prerelease"${F.type==='prerelease'?' selected':''}>Pre-release</option></select></div>
@@ -297,6 +338,9 @@ function bindEvents(){
   ['fDF','fDT','fT','fP','fA','fG','fB','fS','fC'].forEach(id=>{const e=$(id);if(e)e.addEventListener('change',sync)});
   const q=$('fQ');if(q)q.addEventListener('input',sync);
   const r=$('btnR');if(r)r.addEventListener('click',()=>{F={dateFrom:'',dateTo:'',type:'all',platform:'all',country:'all',search:'',includeAsc:false,granularity:'version',botFilter:'off',show:'version'};renderAll()});
+  const cc=$('btnClearCache');if(cc)cc.addEventListener('click',()=>{localStorage.removeItem(CACHE_KEY);location.reload()});
+  const cA=$('cmpA');if(cA)cA.addEventListener('change',()=>{window._cmpA=cA.value;renderAll()});
+  const cB=$('cmpB');if(cB)cB.addEventListener('change',()=>{window._cmpB=cB.value;renderAll()});
 }
 
 function buildCharts(data,countries,pt,totalGh){
@@ -367,10 +411,14 @@ function buildCharts(data,countries,pt,totalGh){
 
 (async()=>{
   try{
-    const[releases,flathub]=await Promise.all([fetchGH(),fetchFL()]);
-    RAW={releases,flathub};renderAll();
-    document.getElementById('upd').textContent=' — '+new Date().toLocaleString();
+    const cached=loadCache();
+    const data=await fetchData();
+    RAW=data;renderAll();
+    const fromCache=cached?' (cached)':'';
+    document.getElementById('upd').textContent=' — '+new Date().toLocaleString()+fromCache;
   }catch(e){
+    const cached=loadCache();
+    if(cached){RAW=cached;renderAll();document.getElementById('upd').textContent=' — using cached data';return}
     const isL=location.protocol==='file:';
     document.getElementById('app').innerHTML=`<div class="loading" style="color:var(--red)"><p style="font-size:16px;margin-bottom:8px">Error</p><p>${e.message}</p>${isL?'<p style="margin-top:12px;font-size:12px">Run: <code>python3 serve.py</code> then open localhost:8080</p>':''}</div>`;
   }
